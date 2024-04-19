@@ -46,6 +46,7 @@ const authenticated_menu=[
     {label:"Add Employee",function:"navigate({fn:'create_account'})", roles:["manager","owner","administrator"]}, 
     //This menu item adds the menu item for updating an inventory count. Notice how a parameter is passed to the "ice_cream_inventory" function
     {label:"Enter Ice Cream Inventory",home:"Inventory",function:"navigate({fn:'record_inventory'})"},
+    {label:"Show Store Inventory",home:"Inventory",function:"navigate({fn:'show_store_inventory'})"},
     //the remaining menu items are added
     {label:"Ice Cream Inventory Summary",home:"Inventory",function:"navigate({fn:'show_inventory_summary'})", roles:["owner","administrator"]},
 
@@ -685,5 +686,76 @@ async function employee_list(){
         tag("employee_list_panel").innerHTML="Unable to get member list: " + response.message + "."
     }    
 
+}
+
+async function show_store_inventory(params){
+    console.log('in show_inventory_summary')
+    //this function is used both the record inventory counts and to build a summary report. The "style" property of the params sent to the function determines whether the function is in "count" mode or "summary" mode. Also, if the user has access to multiple stores, they will be presented with the option to select the store they wish to work with.
+
+    if(!logged_in()){show_home();return}//in case followed a link after logging out. This prevents the user from using this feature when they are not authenticated.
+
+    //First we hide the menu
+    hide_menu()
+    //This function is set up recursively to build the page for working with inventory. The first time the function is called, the HTML shell is created for displaying either the inventory form for recording the count or the inventory report. Note that this will only be built if there is a "style" property set when the function is called. Once the shell is created, the function is called again to either built the form for recording an inventory count or create the summary report.
+    //building the HTML shell
+    tag("canvas").innerHTML=` 
+        <div class="page">
+            <div id="inventory-title" style="text-align:center"><h2>Store Inventory</h2></div>
+            <div id="inventory-message" style="width:100%"></div>
+            <div id="inventory_panel"  style="width:100%">
+            </div>
+        </div>  
+    `
+    //loading user data. Any user can record an inventory count, so we don't need to check their role at this point. If a user is associated with more than one store and they wish to record an inventory count, they will be prompted to select the store they want to work with.
+
+    const user_data = get_user_data()
+    console.log ("user_data",user_data)
+    //If the user wants to see a summary of the most recent count, we call the "get_inventory_summary" function to populate the page with data from all of the stores that are associated with that user.
+    tag("inventory-message").innerHTML='<i class="fas fa-spinner fa-pulse"></i>'
+    
+    const response=await server_request({
+        mode:"get_inventory",
+    })
+    tag("inventory-message").innerHTML=''
+
+    console.log("response", response)
+
+    if(response.status==="success"){//If the data is retrieved successfully, we proceed.
+        
+        //If the style property is set to "summary", we build the report of the most recent count.
+
+        console.log("response", response)
+        //build the HMTL heading for the report
+
+
+        //Build the table to display the report. The columns of the table are: Flavor, the stores available to the user, and the total inventory. Since only the owner is given the option to view inventory counts (see the autheticated_user global variable), all stores will be shown in the report.
+        const html=[]
+        
+        html.push('<table class="inventory-table">')
+        html.push('<tr>')
+        html.push('<th class="sticky">Name</th>')
+        html.push('<th class="sticky">List</th>')
+        html.push('<th class="sticky">Category</th>')
+        html.push('<th class="sticky">Container</th>')
+        
+        html.push('</tr>')
+
+
+        //processing the data to fit in the table
+        for(record of response.records){
+            //add a new table row to the table for each flavor
+            console.log('record',record)
+            html.push("<tr>")
+            html.push(`<td>${record.fields.name}</td>`)
+            html.push(`<td>${record.fields.list}</td>`)
+            html.push(`<td>${record.fields.category}</td>`)
+            html.push(`<td>${record.fields.container[0]}</td>`)
+            html.push("</tr>")
+        }     
+
+        //this adds a table for the "irregular" items that might be counted.
+        html.push("</table>")
+        tag("inventory_panel").innerHTML=html.join("")
+    }     
 }
 
